@@ -1,0 +1,433 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL_AIVEN")
+}
+
+enum Option {
+  A
+  B
+  C
+  D
+}
+
+enum MenuStatus {
+  Open
+  Close
+}
+
+enum Level {
+  A1
+  A2
+  B1
+  B2
+  C1
+  C2
+}
+
+enum PaymentMethod {
+  CASH    @map("Tiền mặt")
+  BANKING @map("Banking")
+}
+
+enum PaymentStatus {
+  PENDING   @map("Chờ xử lý")
+  COMPLETED @map("Hoàn thành")
+  REJECTED  @map("Từ chối")
+}
+
+enum TypeElement {
+  audio
+  image
+}
+
+model User {
+  id            Int             @id @default(autoincrement())
+  full_name     String?
+  email         String          @unique @default("")
+  phone_number  String          @unique @default("")
+  password      String          @default("")
+  googleId      String?         @unique
+  is_active     Boolean         @default(true)
+  role          Int             @default(1)
+  create_at     DateTime        @default(now())
+  update_at     DateTime        @default(now()) @updatedAt
+  blogs         Blog[]
+  comments      Comment[]
+  students      Student[]
+  teachers      Teacher[]
+  staffs        Staff[]
+  histories     History[]
+  refreshTokens RefreshToken[]
+  UserVerifyOtp UserVerifyOtp[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  isRevoked Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
+
+model UserVerifyOtp {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  otp       String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  expiredAt DateTime
+
+  @@map("user_verify_otps")
+}
+
+model Subject {
+  id         Int       @id @default(autoincrement())
+  name       String    @unique
+  create_at  DateTime  @default(now())
+  update_at  DateTime  @updatedAt
+  deleted_at DateTime?
+  exams      Exam[]
+  skillType  Int?      @default(1)
+
+  @@map("subjects")
+}
+
+model Exam {
+  id         Int        @id @default(autoincrement())
+  subject    Subject    @relation(fields: [subject_id], references: [id])
+  subject_id Int
+  name       String     @unique
+  create_at  DateTime   @default(now())
+  update_at  DateTime   @updatedAt
+  deleted_at DateTime?
+  examParts  ExamPart[]
+  histories  History[]
+  comments   Comment[]
+
+  @@map("exams")
+}
+
+model ExamPart {
+  id      Int  @id @default(autoincrement())
+  exam    Exam @relation(fields: [exam_id], references: [id])
+  exam_id Int
+  part    Part @relation(fields: [part_id], references: [id])
+  part_id Int
+
+  @@unique([exam_id, part_id])
+  @@map("exam_parts")
+}
+
+model Part {
+  id              Int             @id @default(autoincrement())
+  name            String
+  order           Int
+  create_at       DateTime        @default(now())
+  update_at       DateTime        @updatedAt
+  deleted_at      DateTime?
+  question_groups QuestionGroup[]
+  examParts       ExamPart[]
+
+  @@map("parts")
+}
+
+model QuestionGroup {
+  id          Int        @id @default(autoincrement())
+  part        Part       @relation(fields: [part_id], references: [id])
+  type_group  Int        @default(1)
+  part_id     Int
+  order       Int
+  title       String?
+  description String?
+  create_at   DateTime   @default(now())
+  update_at   DateTime   @updatedAt
+  deleted_at  DateTime?
+  questions   Question[]
+  elements    Element[]  @relation("GroupElements")
+
+  @@map("question_groups")
+}
+
+model Question {
+  id             Int           @id @default(autoincrement())
+  group          QuestionGroup @relation(fields: [group_id], references: [id])
+  group_id       Int
+  title          String?
+  description    String?
+  option         Json
+  score          Int
+  order          Int
+  global_order   Int?
+  correct_option Option?
+  create_at      DateTime      @default(now())
+  update_at      DateTime      @updatedAt
+  deleted_at     DateTime?
+  answers        Answer[]
+  elements       Element[]     @relation("QuestionElements")
+
+  @@map("questions")
+}
+
+model Element {
+  id          Int            @id @default(autoincrement())
+  type        TypeElement    @default(audio)
+  url         String
+  group       QuestionGroup? @relation("GroupElements", fields: [group_id], references: [id])
+  group_id    Int?
+  question    Question?      @relation("QuestionElements", fields: [question_id], references: [id])
+  question_id Int?
+
+  @@map("elements")
+}
+
+model Answer {
+  id              Int       @id @default(autoincrement())
+  question        Question  @relation(fields: [question_id], references: [id])
+  question_id     Int
+  selected_option String
+  create_at       DateTime  @default(now())
+  update_at       DateTime  @updatedAt
+  deleted_at      DateTime?
+  histories       History[]
+
+  @@map("answers")
+}
+
+model History {
+  id             Int       @id @default(autoincrement())
+  user           User      @relation(fields: [user_id], references: [id])
+  user_id        Int       @unique
+  exam           Exam      @relation(fields: [exam_id], references: [id])
+  exam_id        Int       @unique
+  answer         Answer    @relation(fields: [answer_id], references: [id])
+  answer_id      Int       @unique
+  total_score    Int
+  correct_answer Int
+  create_at      DateTime  @default(now())
+  update_at      DateTime  @updatedAt
+  deleted_at     DateTime?
+
+  @@map("historys")
+}
+
+model Menu {
+  id         Int        @id @default(autoincrement())
+  name       String     @unique
+  sort       Int        @unique
+  status     MenuStatus // "open" hoặc "close"
+  parent_id  Int?
+  create_at  DateTime   @default(now())
+  update_at  DateTime   @updatedAt
+  deleted_at DateTime?
+  blogs      Blog[]
+  courses    Course[]
+
+  @@map("menus")
+}
+
+model Blog {
+  id         Int        @id @default(autoincrement())
+  user       User       @relation(fields: [user_id], references: [id])
+  user_id    Int        @unique
+  menu       Menu       @relation(fields: [menu_id], references: [id])
+  menu_id    Int        @unique
+  status     MenuStatus // "open" hoặc "close"
+  title      String
+  content    String
+  create_at  DateTime   @default(now())
+  update_at  DateTime   @updatedAt
+  deleted_at DateTime?
+
+  @@map("blogs")
+}
+
+model Course {
+  id            Int            @id @default(autoincrement())
+  menu          Menu           @relation(fields: [menu_id], references: [id])
+  menu_id       Int            @unique
+  lessons       Int
+  term          Int
+  level         Level
+  price         Decimal        @db.Decimal(10, 2)
+  currency      String         @default("VND") @db.VarChar(3)
+  description   String
+  create_at     DateTime       @default(now())
+  update_at     DateTime       @updatedAt
+  deleted_at    DateTime?
+  classes       Class[]
+  consultations Consultation[]
+
+  @@map("courses")
+}
+
+model Student {
+  id             Int             @id @default(autoincrement())
+  user           User            @relation(fields: [user_id], references: [id])
+  user_id        Int
+  birth          DateTime
+  state          String
+  city           String
+  zip_code       String
+  street         String
+  name           String
+  email          String
+  phone          String
+  create_at      DateTime        @default(now())
+  update_at      DateTime        @updatedAt
+  deleted_at     DateTime?
+  class_students Class_Student[]
+  payments       Payment[]
+
+  @@map("student")
+}
+
+model Teacher {
+  id          Int       @id @default(autoincrement())
+  user        User      @relation(fields: [user_id], references: [id])
+  user_id     Int       @unique
+  description String
+  photo       String
+  name        String
+  email       String
+  phone       String
+  create_at   DateTime  @default(now())
+  update_at   DateTime  @updatedAt
+  deleted_at  DateTime?
+  classes     Class[]
+
+  @@map("teachers")
+}
+
+model Staff {
+  id         Int       @id @default(autoincrement())
+  user       User      @relation(fields: [user_id], references: [id])
+  user_id    Int       @unique
+  position   String
+  photo      String
+  name       String
+  email      String
+  phone      String
+  create_at  DateTime  @default(now())
+  update_at  DateTime  @updatedAt
+  deleted_at DateTime?
+  payments   Payment[]
+
+  @@map("staffs")
+}
+
+model Class {
+  id               Int             @id @default(autoincrement())
+  class_weekday    Class_Weekday   @relation(fields: [class_weekday_id], references: [id])
+  class_weekday_id Int
+  teacher          Teacher         @relation(fields: [teacher_id], references: [id])
+  teacher_id       Int
+  course           Course          @relation(fields: [course_id], references: [id])
+  course_id        Int
+  address          Address         @relation(fields: [address_id], references: [id])
+  address_id       Int
+  name             String
+  start_date       DateTime
+  start_end        DateTime
+  create_at        DateTime        @default(now())
+  update_at        DateTime        @updatedAt
+  deleted_at       DateTime?
+  class_students   Class_Student[]
+  payments         Payment[]
+
+  @@map("classes")
+}
+
+model Class_Student {
+  id         Int       @id @default(autoincrement())
+  class      Class     @relation(fields: [class_id], references: [id])
+  class_id   Int       @unique
+  student    Student   @relation(fields: [student_id], references: [id])
+  student_id Int       @unique
+  create_at  DateTime  @default(now())
+  update_at  DateTime  @updatedAt
+  deleted_at DateTime?
+
+  @@map("class_students")
+}
+
+model Class_Weekday {
+  id         Int       @id @default(autoincrement())
+  week_day   Int
+  hours      Int
+  create_at  DateTime  @default(now())
+  update_at  DateTime  @updatedAt
+  deleted_at DateTime?
+  classes    Class[]
+
+  @@map("class_weekdays")
+}
+
+model Payment {
+  id             Int           @id @default(autoincrement())
+  student        Student       @relation(fields: [student_id], references: [id])
+  student_id     Int
+  staff          Staff         @relation(fields: [staff_id], references: [id])
+  staff_id       Int
+  class          Class         @relation(fields: [class_id], references: [id])
+  class_id       Int
+  payment_date   DateTime
+  amount         Decimal       @db.Decimal(10, 2)
+  payment_method PaymentMethod // "tiền mặt", "banking"
+  status         PaymentStatus // "chờ xử lý", "hoàn thành", "từ chối"
+  create_at      DateTime      @default(now())
+
+  @@map("payments")
+}
+
+model Consultation {
+  id         Int       @id @default(autoincrement())
+  course     Course    @relation(fields: [course_id], references: [id])
+  course_id  Int
+  name       String
+  email      String
+  phone      String
+  create_at  DateTime  @default(now())
+  deleted_at DateTime?
+
+  @@map("consultations")
+}
+
+model Address {
+  id         Int       @id @default(autoincrement())
+  province   String
+  district   String
+  ward       String
+  street     String
+  create_at  DateTime  @default(now())
+  update_at  DateTime  @updatedAt
+  deleted_at DateTime?
+  Class      Class[]
+
+  @@map("addresses")
+}
+
+model Comment {
+  id         Int       @id @default(autoincrement())
+  user       User      @relation(fields: [user_id], references: [id])
+  user_id    Int
+  parent_id  Int?
+  exam       Exam      @relation(fields: [exam_id], references: [id])
+  exam_id    Int
+  content    String
+  status     Boolean   @default(true)
+  create_at  DateTime  @default(now())
+  update_at  DateTime  @updatedAt
+  deleted_at DateTime?
+
+  @@map("comments")
+}
