@@ -105,6 +105,7 @@ export const ExamController = {
       const existingName = await prisma.exam.findUnique({
         where: {
           name: name,
+          subject_id: Number(subject_id),
         },
       });
 

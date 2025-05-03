@@ -17,8 +17,10 @@ router.post(
 router.post("/login", validateLogin, handleValidation, AuthController.login);
 router.post("/refresh-token", AuthController.refreshToken);
 router.post("/verify-otp", AuthController.verifyOtp);
-router.post("/resendVerify-otp", AuthController.resendVerifyOtp);
 router.get("/current-user", ensureAuthenticated, AuthController.getCurrentUser);
+router.post("/logout", ensureAuthenticated, AuthController.logout);
+
+router.post("/resendVerify-otp", AuthController.resendVerifyOtp);
 
 router.get(
   "/google",
@@ -37,14 +39,5 @@ router.get(
     res.redirect("/");
   }
 );
-
-router.get("/logout", (req, res, next) => {
-  req.logout((err) => {
-    if (err) return next(err);
-    req.session.destroy(() => {
-      res.redirect("/");
-    });
-  });
-});
 
 export default router;

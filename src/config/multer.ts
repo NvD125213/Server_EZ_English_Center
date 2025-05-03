@@ -1,17 +1,31 @@
 import multer from "multer";
 import path from "path";
+import { promises as fs } from "fs";
 
 export const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadPath = path.join(
-      process.cwd(),
-      "uploads",
-      req.body.pathDir || "default"
-    );
-    cb(null, uploadPath);
+  destination: async (req, file, cb) => {
+    try {
+      const baseUploadPath = path.join(process.cwd(), "uploads");
+      const pathDir = (req as any).pathDir || req.body.pathDir || "default";
+      const uploadPath = path.join(baseUploadPath, pathDir);
+
+      console.log("Debug - Multer destination:", {
+        baseUploadPath,
+        pathDir,
+        uploadPath,
+      });
+
+      // Ensure directory exists
+      await fs.mkdir(uploadPath, { recursive: true });
+      cb(null, uploadPath);
+    } catch (error) {
+      console.error("Error in multer destination:", error);
+      cb(error as Error, "");
+    }
   },
   filename: (req, file, cb) => {
     const uniqueName = `${Date.now()}${path.extname(file.originalname)}`;
+    console.log("Debug - Multer filename:", uniqueName);
     cb(null, uniqueName);
   },
 });
@@ -20,22 +34,28 @@ export const storage = multer.diskStorage({
 export const uploadMiddleware = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    const filetypes = /jpeg|jpg|png|mp3|wav/;
+    console.log("Debug - File being filtered:", {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+    });
+
+    // Kiểm tra phần mở rộng của file
+    const filetypes = /jpeg|jpg|png|mp3|wav|mpeg|audio\/mpeg|audio\/wav/;
     const extname = filetypes.test(
       path.extname(file.originalname).toLowerCase()
     );
     const mimetype = filetypes.test(file.mimetype);
 
-    if (extname && mimetype) {
+    console.log("Debug - File filter results:", {
+      extname,
+      mimetype,
+      originalname: file.originalname,
+      fileMimetype: file.mimetype,
+    });
+
+    if (extname || mimetype) {
       return cb(null, true);
     }
     cb(new Error("Only images and audio files are allowed!"));
   },
-}).fields([
-  { name: "elements", maxCount: 10 }, // Files cho group
-  { name: "questions[0][elements]", maxCount: 10 }, // Files cho câu hỏi đầu tiên
-  { name: "questions[1][elements]", maxCount: 10 }, // Files cho câu hỏi thứ hai
-  { name: "questions[2][elements]", maxCount: 10 }, // Files cho câu hỏi thứ ba
-  { name: "questions[3][elements]", maxCount: 10 }, // Files cho câu hỏi thứ tư
-  { name: "questions[4][elements]", maxCount: 10 }, // Files cho câu hỏi thứ năm
-]);
+}).any();

@@ -8,6 +8,8 @@ import crypto from "crypto";
 import { OAuth2Client } from "google-auth-library";
 import jwt from "jsonwebtoken";
 import "../config/passport";
+import { sendOTP } from "../libs/mailer";
+
 const prisma = new PrismaClient();
 
 export interface LogoutRequest extends Request {
@@ -16,7 +18,7 @@ export interface LogoutRequest extends Request {
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-const tokenBlacklist = new Set();
+export const tokenBlacklist = new Set();
 
 export const AuthController = {
   register: async (
@@ -77,7 +79,42 @@ export const AuthController = {
     }
 
     if (user.role === 1 || user.role === 2) {
-      await sendEmailOTP({ email, id: user.id }, res);
+      try {
+        // Generate OTP
+        const otp = `${Math.floor(1000 + Math.random() * 9000)}`;
+
+        // Send OTP to email (assuming sendOTP is a function that handles email sending)
+        await sendOTP(email, otp);
+
+        // Hash the OTP for storage in the database
+        const saltRound = 10;
+        const hashOtp = await bcrypt.hash(otp, saltRound);
+
+        // Delete any existing OTPs for this user
+        await prisma.userVerifyOtp.deleteMany({ where: { userId: user.id } });
+
+        // Store the new OTP in the database with expiration time
+        const userVerify = await prisma.userVerifyOtp.create({
+          data: {
+            userId: user.id,
+            otp: hashOtp,
+            expiredAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes expiration
+          },
+        });
+
+        // Send a response back indicating OTP has been sent
+        return res.status(202).json({
+          status: "PENDING",
+          message: "Verify OTP email sent",
+          data: { id: userVerify.userId, expiredAt: userVerify.expiredAt },
+        });
+      } catch (err: any) {
+        console.error("verifyOtp error:", err);
+        return res.status(500).json({
+          message: "Internal Server Error",
+          error: err.message,
+        });
+      }
     }
 
     // Xóa refresh token cũ trước khi tạo mới
@@ -184,7 +221,7 @@ export const AuthController = {
     }
   },
 
-  logout: async (req: LogoutRequest, res: Response): Promise<any> => {
+  logout: async (req: Request, res: Response): Promise<any> => {
     try {
       const authHeader = req.headers.authorization;
 

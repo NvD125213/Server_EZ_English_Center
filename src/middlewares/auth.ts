@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { UserType } from "../Types/userType";
 import { sendOTP } from "../libs/mailer";
 import bcrypt from "bcryptjs";
+import { tokenBlacklist } from "../controllers/authController";
 
 const prisma = new PrismaClient();
 
@@ -26,6 +27,10 @@ export const ensureAuthenticated = (
 
   const accessToken = authHeader.split(" ")[1];
 
+  // Kiểm tra token có trong blacklist hay không
+  if (tokenBlacklist.has(accessToken)) {
+    res.status(401).json({ message: "Access token is blacklisted" });
+  }
   try {
     const decodedAccessToken = jwt.verify(
       accessToken,

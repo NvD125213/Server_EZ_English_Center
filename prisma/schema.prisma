@@ -103,16 +103,17 @@ model Subject {
 }
 
 model Exam {
-  id         Int        @id @default(autoincrement())
-  subject    Subject    @relation(fields: [subject_id], references: [id])
-  subject_id Int
-  name       String     @unique
-  create_at  DateTime   @default(now())
-  update_at  DateTime   @updatedAt
-  deleted_at DateTime?
-  examParts  ExamPart[]
-  histories  History[]
-  comments   Comment[]
+  id             Int             @id @default(autoincrement())
+  subject        Subject         @relation(fields: [subject_id], references: [id])
+  subject_id     Int
+  name           String          @unique
+  create_at      DateTime        @default(now())
+  update_at      DateTime        @updatedAt
+  deleted_at     DateTime?
+  examParts      ExamPart[]
+  histories      History[]
+  comments       Comment[]
+  questionGroups QuestionGroup[]
 
   @@map("exams")
 }
@@ -144,8 +145,10 @@ model Part {
 model QuestionGroup {
   id          Int        @id @default(autoincrement())
   part        Part       @relation(fields: [part_id], references: [id])
+  exam        Exam       @relation(fields: [exam_id], references: [id])
   type_group  Int        @default(1)
   part_id     Int
+  exam_id     Int
   order       Int
   title       String?
   description String?
@@ -186,6 +189,7 @@ model Element {
   group_id    Int?
   question    Question?      @relation("QuestionElements", fields: [question_id], references: [id])
   question_id Int?
+  cloudId     Boolean?       @default(false)
 
   @@map("elements")
 }
