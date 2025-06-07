@@ -1,12 +1,5 @@
-import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
-
-const prisma = new PrismaClient();
-
-interface ExamType {
-  name: string;
-  subject_id: number;
-}
+import prisma from "../config/prisma";
 
 export const ExamController = {
   get: async (req: Request, res: Response): Promise<any> => {
@@ -92,17 +85,14 @@ export const ExamController = {
 
   getByID: async (req: Request, res: Response): Promise<any> => {},
 
-  create: async (
-    req: Request<{}, {}, ExamType>,
-    res: Response
-  ): Promise<any> => {
+  create: async (req: Request, res: Response): Promise<any> => {
     try {
       const { subject_id, name } = req.body;
 
       if (!subject_id || !name) {
         return res.status(400).json({ error: "Missing required fields" });
       }
-      const existingName = await prisma.exam.findUnique({
+      const existingName = await prisma.exam.findFirst({
         where: {
           name: name,
           subject_id: Number(subject_id),

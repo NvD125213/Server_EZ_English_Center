@@ -5,8 +5,7 @@ import { UserType } from "../Types/userType";
 import { sendOTP } from "../libs/mailer";
 import bcrypt from "bcryptjs";
 import { tokenBlacklist } from "../controllers/authController";
-
-const prisma = new PrismaClient();
+import prisma from "../config/prisma";
 
 interface EmailOtpType {
   email: string;
@@ -119,3 +118,42 @@ export const sendEmailOTP = async (
     });
   }
 };
+
+export function checkStaffPosition(allowedPositions: string[]): RequestHandler {
+  return async (req, res, next): Promise<void> => {
+    try {
+      // If user is admin (role = 1), allow access
+      if ((req as any).user.role === 1) {
+        return next();
+      }
+
+      // Get staff information from the database
+      const staff = await prisma.staff.findFirst({
+        where: {
+          user_id: (req as any).user.id,
+          deleted_at: null,
+        },
+      });
+
+      if (!staff) {
+        res.status(403).json({
+          message: "Staff not found or has been deleted",
+        });
+        return;
+      }
+
+      if (!allowedPositions.includes(staff.position)) {
+        res.status(403).json({
+          message: "You don't have permission to access this resource",
+        });
+        return;
+      }
+
+      // Add staff info to request for later use
+      (req as any).staff = staff;
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
+}

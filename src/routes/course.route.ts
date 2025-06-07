@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { PartController } from "../controllers/partControllers";
+import { CourseController } from "../controllers/courseController";
 import {
   ensureAuthenticated,
   authorize,
@@ -8,28 +8,28 @@ import {
 
 const router = Router();
 
-router.get("/", PartController.get);
-router.get("/:id", PartController.getByID);
+router.get("/", CourseController.get);
+router.get("/:id", CourseController.getByID);
 router.post(
   "/",
   ensureAuthenticated,
   authorize([1, 2]),
   checkStaffPosition(["moderator"]),
-  PartController.create
+  CourseController.create
 );
 router.put(
   "/:id",
   ensureAuthenticated,
   authorize([1, 2]),
   checkStaffPosition(["moderator"]),
-  PartController.update
+  CourseController.update
 );
 router.delete(
   "/:id",
   ensureAuthenticated,
   authorize([1, 2]),
   checkStaffPosition(["moderator"]),
-  PartController.delete
+  CourseController.delete
 );
 
 export default router;

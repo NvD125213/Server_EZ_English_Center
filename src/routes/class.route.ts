@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { PartController } from "../controllers/partControllers";
+import { ClassController } from "../controllers/classController";
 import {
   ensureAuthenticated,
   authorize,
@@ -8,28 +8,39 @@ import {
 
 const router = Router();
 
-router.get("/", PartController.get);
-router.get("/:id", PartController.getByID);
+// Teacher routes
+router.get("/", ClassController.get);
+router.get(
+  "/get-class-by-address-and-month",
+  ClassController.getListClassByAddressAndMonth
+);
+router.get("/:id", ClassController.getById);
+router.get("/:id/students", ClassController.getStudentsByClassId);
 router.post(
   "/",
   ensureAuthenticated,
   authorize([1, 2]),
   checkStaffPosition(["moderator"]),
-  PartController.create
+  ClassController.create
 );
 router.put(
   "/:id",
   ensureAuthenticated,
   authorize([1, 2]),
   checkStaffPosition(["moderator"]),
-  PartController.update
+  ClassController.update
 );
 router.delete(
   "/:id",
   ensureAuthenticated,
   authorize([1, 2]),
   checkStaffPosition(["moderator"]),
-  PartController.delete
+  ClassController.delete
+);
+router.post(
+  "/register-class",
+
+  ClassController.registerClass
 );
 
 export default router;

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { PartController } from "../controllers/partControllers";
+import { MenuController } from "../controllers/menuController";
 import {
   ensureAuthenticated,
   authorize,
@@ -8,28 +8,35 @@ import {
 
 const router = Router();
 
-router.get("/", PartController.get);
-router.get("/:id", PartController.getByID);
+router.get("/", MenuController.get);
+router.get("/:id", MenuController.getByID);
 router.post(
   "/",
   ensureAuthenticated,
   authorize([1, 2]),
   checkStaffPosition(["moderator"]),
-  PartController.create
+  MenuController.create
+);
+router.put(
+  "/reorder",
+  ensureAuthenticated,
+  authorize([1, 2]),
+  checkStaffPosition(["moderator"]),
+  MenuController.reorder
 );
 router.put(
   "/:id",
   ensureAuthenticated,
   authorize([1, 2]),
   checkStaffPosition(["moderator"]),
-  PartController.update
+  MenuController.update
 );
 router.delete(
   "/:id",
   ensureAuthenticated,
   authorize([1, 2]),
   checkStaffPosition(["moderator"]),
-  PartController.delete
+  MenuController.delete
 );
 
 export default router;

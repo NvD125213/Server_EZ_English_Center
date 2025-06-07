@@ -39,5 +39,6 @@ router.get(
     res.redirect("/");
   }
 );
+router.post("/google", AuthController.GoogleSignInFirebase);
 
 export default router;

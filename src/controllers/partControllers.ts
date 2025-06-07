@@ -1,14 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
-
-const prisma = new PrismaClient();
-
-interface PartType {
-  id: number;
-  name: string;
-  exam_id: number;
-  order: number;
-}
+import prisma from "../config/prisma";
 
 export const PartController = {
   get: async (req: Request, res: Response): Promise<any> => {
@@ -38,10 +30,7 @@ export const PartController = {
 
   getByID: async (req: Request, res: Response): Promise<any> => {},
 
-  create: async (
-    req: Request<{}, {}, PartType>,
-    res: Response
-  ): Promise<any> => {
+  create: async (req: Request, res: Response): Promise<any> => {
     try {
       const { id, name, order } = req.body;
 

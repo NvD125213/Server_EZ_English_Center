@@ -1,25 +1,24 @@
 import { PrismaClient, TypeElement } from "@prisma/client";
 import { Request, Response } from "express";
-import { GroupQuestionType } from "../Types/question";
 import path from "path";
 import { promises as fs } from "fs";
 
 const prisma = new PrismaClient();
 
 interface ExcelQuestion {
-  Order: number;
   Part: string;
-  "Title Group"?: string;
-  "Description Group"?: string;
+  Order: number;
   Question: string;
   Description?: string;
+  "Option A"?: string;
+  "Option B"?: string;
+  "Option C"?: string;
+  "Option D"?: string;
+  "Correct option": string;
   Element?: string;
   "Element Group"?: string;
-  "Option 1": string;
-  "Option 2": string;
-  "Option 3": string;
-  "Option 4": string;
-  "Correct Answer": string;
+  "Description Group"?: string;
+  "Title Group"?: string;
 }
 
 interface ExcelExamSubject {
@@ -28,6 +27,130 @@ interface ExcelExamSubject {
 }
 
 export const QuestionController = {
+  getAllQuestionOnExam: async (req: Request, res: Response): Promise<any> => {
+    const { exam_id } = req.params;
+    if (!exam_id) {
+      return res.status(400).json({ error: "Exam ID is required!" });
+    }
+
+    try {
+      // Get all question groups for the exam
+      const questionGroups = await prisma.questionGroup.findMany({
+        where: {
+          exam_id: Number(exam_id),
+          deleted_at: null,
+        },
+        include: {
+          questions: {
+            where: {
+              deleted_at: null,
+            },
+            include: {
+              elements: true,
+            },
+            orderBy: {
+              global_order: "asc",
+            },
+          },
+          elements: true,
+          part: {
+            select: {
+              name: true,
+            },
+          },
+        },
+        orderBy: {
+          part_id: "asc",
+        },
+      });
+
+      // Group questions by part
+      const questionsByPart = questionGroups.reduce((acc: any[], group) => {
+        const partIndex = acc.findIndex((p) => p.part === group.part.name);
+
+        if (partIndex === -1) {
+          // Create new part entry
+          acc.push({
+            part: group.part.name,
+            data: [
+              {
+                id: group.id,
+                type_group: group.type_group,
+                part_id: group.part_id,
+                order: group.order,
+                title: group.title,
+                description: group.description,
+                create_at: group.create_at,
+                update_at: group.update_at,
+                deleted_at: group.deleted_at,
+                exam_id: group.exam_id,
+                questions: group.questions,
+                elements: group.elements,
+              },
+            ],
+            total: group.questions.length,
+            page: 1,
+            limit: 10,
+            totalPages: Math.ceil(group.questions.length / 10),
+          });
+        } else {
+          // Merge with existing part
+          const existingPart = acc[partIndex];
+          existingPart.data.push({
+            id: group.id,
+            type_group: group.type_group,
+            part_id: group.part_id,
+            order: group.order,
+            title: group.title,
+            description: group.description,
+            create_at: group.create_at,
+            update_at: group.update_at,
+            deleted_at: group.deleted_at,
+            exam_id: group.exam_id,
+            questions: group.questions,
+            elements: group.elements,
+          });
+
+          // Update totals
+          existingPart.total += group.questions.length;
+          existingPart.totalPages = Math.ceil(existingPart.total / 10);
+        }
+
+        return acc;
+      }, []);
+
+      // Sort questions within each part by global_order
+      questionsByPart.forEach((part) => {
+        // Combine all questions from all groups in this part
+        const allQuestions = part.data.reduce((acc: any[], group: any) => {
+          return [...acc, ...group.questions];
+        }, []);
+
+        // Sort all questions by global_order
+        allQuestions.sort(
+          (a: { global_order: number }, b: { global_order: number }) =>
+            a.global_order - b.global_order
+        );
+
+        // Update the data structure to have a single group with all questions
+        part.data = [
+          {
+            ...part.data[0],
+            questions: allQuestions,
+            // Combine all elements from all groups
+            elements: part.data.reduce((acc: any[], group: any) => {
+              return [...acc, ...group.elements];
+            }, []),
+          },
+        ];
+      });
+
+      return res.status(200).json(questionsByPart);
+    } catch (error) {
+      console.error("Error fetching questions:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
   getQuestionByPartAndExam: async (
     req: Request,
     res: Response
@@ -158,10 +281,7 @@ export const QuestionController = {
     }
   },
 
-  createQuestion: async (
-    req: Request<{}, {}, GroupQuestionType>,
-    res: Response
-  ): Promise<any> => {
+  createQuestion: async (req: Request, res: Response): Promise<any> => {
     const { part_id, exam_id } = req.query;
     const { description, type_group, questions } = req.body;
     const files = req.files as Express.Multer.File[];
@@ -221,14 +341,17 @@ export const QuestionController = {
             (file) => file.fieldname === "elements"
           );
           if (groupElements.length > 0) {
-            const uploadedElements = groupElements.map((el) => ({
-              type: el.mimetype.startsWith("image")
-                ? "image"
-                : ("audio" as "image" | "audio"),
-              url: `/uploads/${pathDir}/${el.filename}`,
-              group_id: newGroup.id,
-            }));
-            await tx.element.createMany({ data: uploadedElements });
+            for (const el of groupElements) {
+              await tx.element.create({
+                data: {
+                  type: el.mimetype.startsWith("image")
+                    ? "image"
+                    : ("audio" as "image" | "audio"),
+                  url: `/uploads/${pathDir}/${el.filename}`,
+                  group_id: newGroup.id,
+                },
+              });
+            }
           }
 
           const maxGlobalOrder = await tx.question.findFirst({
@@ -247,6 +370,19 @@ export const QuestionController = {
           for (let i = 0; i < questions.length; i++) {
             const q = questions[i];
 
+            // Parse options from JSON string if it's a string
+            let options = q.option;
+            if (typeof options === "string") {
+              try {
+                options = JSON.parse(options);
+              } catch (e) {
+                console.error("Error parsing options JSON:", e);
+                return res
+                  .status(400)
+                  .json({ error: "Invalid options format" });
+              }
+            }
+
             const maxOrder = await tx.question.findFirst({
               where: {
                 group: {
@@ -260,16 +396,18 @@ export const QuestionController = {
 
             const startOrder = maxOrder?.order ?? 0;
 
+            // Create question with parsed options
             const createdQuestion = await tx.question.create({
               data: {
                 title: q.title,
                 description: q.description,
-                option: q.option,
+                option: options, // Now storing as JSON object
                 correct_option: q.correct_option,
                 score: Number(q.score),
                 order: startOrder + i + 1,
                 group_id: newGroup.id,
                 global_order: startGlobalOrder + i + 1,
+                deleted_at: null,
               },
             });
 
@@ -279,15 +417,17 @@ export const QuestionController = {
             );
 
             if (questionElements.length > 0) {
-              const uploadedQuestionElements = questionElements.map((file) => ({
-                type: file.mimetype.startsWith("image")
-                  ? "image"
-                  : ("audio" as "image" | "audio"),
-                url: `/uploads/${pathDir}/${file.filename}`,
-                question_id: createdQuestion.id,
-              }));
-
-              await tx.element.createMany({ data: uploadedQuestionElements });
+              for (const file of questionElements) {
+                await tx.element.create({
+                  data: {
+                    type: file.mimetype.startsWith("image")
+                      ? "image"
+                      : ("audio" as "image" | "audio"),
+                    url: `/uploads/${pathDir}/${file.filename}`,
+                    question_id: createdQuestion.id,
+                  },
+                });
+              }
             }
           }
 
@@ -361,13 +501,24 @@ export const QuestionController = {
         const oldPathDir = (req as any).pathDir;
         console.log("Debug - PathDir:", oldPathDir);
 
-        // Update question
+        // Parse options from JSON string if it's a string
+        let parsedOptions = option;
+        if (typeof option === "string") {
+          try {
+            parsedOptions = JSON.parse(option);
+          } catch (e) {
+            console.error("Error parsing options JSON:", e);
+            return res.status(400).json({ error: "Invalid options format" });
+          }
+        }
+
+        // Update question with parsed options
         const updatedQuestion = await tx.question.update({
           where: { id: Number(question_id) },
           data: {
             title,
             description,
-            option,
+            option: parsedOptions, // Now storing as JSON object
             correct_option,
             score: Number(score),
             global_order: Number(global_order),
@@ -459,7 +610,7 @@ export const QuestionController = {
         examAndSubject: ExcelExamSubject[];
       };
 
-      // Check exam and subject
+      // Kiểm tra thông tin exam và subject
       if (!examAndSubject || examAndSubject.length === 0) {
         return res.status(400).json({
           error: "Thiếu thông tin Exam và Subject trong file Excel",
@@ -473,32 +624,60 @@ export const QuestionController = {
         });
       }
 
-      // Check if exam and subject exist
-      const existingSubject = await prisma.subject.findFirst({
+      // Luôn tạo mới hoặc lấy subject đã tồn tại
+      let subject = await prisma.subject.findFirst({
         where: { name: Subject, deleted_at: null },
       });
 
-      const existingExam = await prisma.exam.findFirst({
+      if (!subject) {
+        subject = await prisma.subject.create({
+          data: {
+            name: Subject,
+            deleted_at: null,
+          },
+        });
+      }
+
+      // Luôn tạo mới hoặc lấy exam đã tồn tại
+      let exam = await prisma.exam.findFirst({
         where: { name: Exam, deleted_at: null },
       });
 
-      if (!existingSubject) {
-        return res.status(400).json({
-          error: `Subject "${Subject}" không tồn tại trong hệ thống`,
+      if (!exam) {
+        exam = await prisma.exam.create({
+          data: {
+            name: Exam,
+            subject_id: subject.id,
+            deleted_at: null,
+          },
         });
+
+        // Lấy tất cả các phần sẽ được sử dụng trong exam này
+        const uniqueParts = [...new Set(detailQuestions.map((q) => q.Part))];
+
+        // Tạo liên kết exam-part cho tất cả các phần
+        for (const partName of uniqueParts) {
+          const part = await prisma.part.findFirst({
+            where: { name: partName },
+          });
+
+          if (part) {
+            // Tạo liên kết exam-part
+            await prisma.examPart.create({
+              data: {
+                exam_id: exam.id,
+                part_id: part.id,
+              },
+            });
+          }
+        }
       }
 
-      if (!existingExam) {
-        return res.status(400).json({
-          error: `Exam "${Exam}" không tồn tại trong hệ thống`,
-        });
-      }
-
-      // Get max global order for this exam
+      // Lấy thứ tự toàn cục lớn nhất cho exam này
       const maxGlobalOrder = await prisma.question.findFirst({
         where: {
           group: {
-            exam_id: existingExam.id,
+            exam_id: exam?.id,
           },
         },
         orderBy: { global_order: "desc" },
@@ -507,7 +686,7 @@ export const QuestionController = {
 
       const startGlobalOrder = maxGlobalOrder?.global_order ?? 0;
 
-      // Group questions by Part
+      // Nhóm các câu hỏi theo Part
       const questionsByPart = detailQuestions.reduce(
         (acc: Record<string, ExcelQuestion[]>, question: ExcelQuestion) => {
           const partName = question.Part;
@@ -524,7 +703,7 @@ export const QuestionController = {
         {}
       );
 
-      // Check if all parts exist and get their order
+      // Kiểm tra xem tất cả các phần có tồn tại và lấy thứ tự của chúng
       const partOrders = new Map<string, number>();
       for (const partName of Object.keys(questionsByPart)) {
         const existingPart = await prisma.part.findFirst({
@@ -537,29 +716,35 @@ export const QuestionController = {
           });
         }
 
-        // Get part order from examPart
+        // Lấy thứ tự phần từ examPart
         const examPart = await prisma.examPart.findFirst({
           where: {
-            exam_id: existingExam.id,
+            exam_id: exam.id,
             part_id: existingPart.id,
           },
         });
 
+        // Nếu examPart không tồn tại (không nên xảy ra với exam mới, nhưng có thể với exam đã tồn tại)
         if (!examPart) {
-          return res.status(400).json({
-            error: `Không tìm thấy liên kết giữa Exam "${Exam}" và Part "${partName}"`,
+          // Tạo liên kết exam-part
+          const newExamPart = await prisma.examPart.create({
+            data: {
+              exam_id: exam.id,
+              part_id: existingPart.id,
+            },
           });
+          partOrders.set(partName, newExamPart.id);
+        } else {
+          partOrders.set(partName, examPart.id);
         }
-
-        partOrders.set(partName, examPart.id);
       }
 
-      // Sort parts by their order
+      // Sắp xếp các phần theo thứ tự
       const sortedPartNames = Object.keys(questionsByPart).sort((a, b) => {
         return (partOrders.get(a) || 0) - (partOrders.get(b) || 0);
       });
 
-      // Process each part
+      // Xử lý từng phần
       const results = [];
       let currentGlobalOrder = startGlobalOrder;
 
@@ -571,10 +756,10 @@ export const QuestionController = {
 
         if (!part) continue;
 
-        // Get exam part
+        // Lấy exam part
         const examPart = await prisma.examPart.findFirst({
           where: {
-            exam_id: existingExam.id,
+            exam_id: exam.id,
             part_id: part.id,
           },
         });
@@ -585,16 +770,16 @@ export const QuestionController = {
           });
         }
 
-        // Sort questions by Order within the part
+        // Sắp xếp câu hỏi theo Order trong phần
         const sortedQuestions = [...questions].sort(
           (a, b) => a.Order - b.Order
         );
 
-        // Create question group
+        // Tạo nhóm câu hỏi
         const lastGroup = await prisma.questionGroup.findFirst({
           where: {
             part_id: part.id,
-            exam_id: existingExam.id,
+            exam_id: exam.id,
           },
           orderBy: { order: "desc" },
         });
@@ -602,7 +787,7 @@ export const QuestionController = {
         const newGroup = await prisma.questionGroup.create({
           data: {
             part_id: part.id,
-            exam_id: existingExam.id,
+            exam_id: exam.id,
             order: (lastGroup?.order ?? 0) + 1,
             type_group: 1,
             description: sortedQuestions[0]["Description Group"] || "",
@@ -610,55 +795,71 @@ export const QuestionController = {
           },
         });
 
-        // Create questions for this group
+        // Tạo câu hỏi cho nhóm này
         for (let i = 0; i < sortedQuestions.length; i++) {
           const q = sortedQuestions[i];
           currentGlobalOrder++;
+
+          // Chuyển đổi các lựa chọn sang định dạng A, B, C, D
+          const options = {
+            A: q["Option A"],
+            B: q["Option B"],
+            C: q["Option C"],
+            D: q["Option D"],
+          };
+
+          // Chuyển đổi đáp án đúng sang định dạng mảng
+          const correctAnswer = q["Correct option"];
+          if (!correctAnswer) {
+            throw new Error(`Thiếu đáp án cho câu hỏi "${q.Question}"`);
+          }
+
+          // Chuyển đổi chuỗi đáp án sang giá trị enum Option
+          const correctOption = correctAnswer.replace("Option ", "") as
+            | "A"
+            | "B"
+            | "C"
+            | "D";
 
           const createdQuestion = await prisma.question.create({
             data: {
               title: q.Question,
               description: q.Description || "",
-              option: {
-                A: q["Option 1"],
-                B: q["Option 2"],
-                C: q["Option 3"],
-                D: q["Option 4"],
-              },
-              correct_option: q["Correct Answer"] as "A" | "B" | "C" | "D",
-              score: 1, // Default score
-              order: q.Order, // Use Order from Excel
+              option: options, // Lưu dưới dạng đối tượng key-value
+              correct_option: correctOption, // Lưu dưới dạng enum Option
+              score: 1, // Điểm mặc định
+              order: q.Order, // Sử dụng Order từ Excel
               group_id: newGroup.id,
-              global_order: currentGlobalOrder, // Use incremented global order
+              global_order: currentGlobalOrder, // Sử dụng thứ tự toàn cục tăng dần
             },
           });
 
-          // Handle element if exists
+          // Xử lý phần tử nếu tồn tại
           if (q.Element) {
-            // Check if the element URL is from Cloudinary
+            // Kiểm tra xem URL phần tử có phải từ Cloudinary không
             const isAudio =
               q.Element.toLowerCase().includes(".mp3") ||
               q.Element.toLowerCase().includes(".wav");
             await prisma.element.create({
               data: {
                 type: isAudio ? "audio" : "image",
-                url: q.Element, // Use the Cloudinary URL directly
+                url: q.Element, // Sử dụng URL Cloudinary trực tiếp
                 question_id: createdQuestion.id,
                 cloudId: true,
               },
             });
           }
 
-          // Handle group element if exists
+          // Xử lý phần tử nhóm nếu tồn tại
           if (q["Element Group"] && i === 0) {
-            // Check if the group element URL is from Cloudinary
+            // Kiểm tra xem URL phần tử nhóm có phải từ Cloudinary không
             const isAudio =
               q["Element Group"].toLowerCase().includes(".mp3") ||
               q["Element Group"].toLowerCase().includes(".wav");
             await prisma.element.create({
               data: {
                 type: isAudio ? "audio" : "image",
-                url: q["Element Group"], // Use the Cloudinary URL directly
+                url: q["Element Group"], // Sử dụng URL Cloudinary trực tiếp
                 group_id: newGroup.id,
                 cloudId: true,
               },
@@ -678,7 +879,7 @@ export const QuestionController = {
         results,
       });
     } catch (error: any) {
-      console.error("Error uploading Excel:", error);
+      console.error("Lỗi khi upload Excel:", error);
       return res.status(500).json({
         error: error.message || "Lỗi khi xử lý file Excel",
       });

@@ -1,12 +1,5 @@
-import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
-
-const prisma = new PrismaClient();
-
-interface SubjectType {
-  name: string;
-  skillType: number;
-}
+import prisma from "../config/prisma";
 
 export const SubjectController = {
   get: async (req: Request, res: Response): Promise<any> => {
@@ -101,10 +94,7 @@ export const SubjectController = {
     return res.status(200).json(subject);
   },
 
-  create: async (
-    req: Request<{}, {}, SubjectType>,
-    res: Response
-  ): Promise<any> => {
+  create: async (req: Request, res: Response): Promise<any> => {
     try {
       const { name, skillType } = req.body;
 
@@ -115,7 +105,7 @@ export const SubjectController = {
         return res.status(422).json({ error: "Skill type is required!" });
       }
 
-      const existing = await prisma.subject.findUnique({
+      const existing = await prisma.subject.findFirst({
         where: { name },
       });
 
@@ -160,7 +150,7 @@ export const SubjectController = {
     if (!skillType) {
       return res.status(422).json({ error: "Skill type is required!" });
     }
-    const duplicateName = await prisma.subject.findUnique({ where: { name } });
+    const duplicateName = await prisma.subject.findFirst({ where: { name } });
     if (duplicateName && duplicateName.id !== subjectId) {
       return res.status(409).json({ error: `${name} already exists!` });
     }
@@ -222,6 +212,27 @@ export const SubjectController = {
       return res.status(500).json({
         error: err.message,
       });
+    }
+  },
+
+  getSubjectWithExam: async (req: Request, res: Response): Promise<any> => {
+    try {
+      const subjects = await prisma.subject.findMany({
+        where: { deleted_at: null },
+        include: {
+          exams: {
+            where: { deleted_at: null },
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: { create_at: "desc" },
+      });
+      return res.status(200).json(subjects);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
     }
   },
 };

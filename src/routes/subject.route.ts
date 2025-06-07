@@ -1,12 +1,36 @@
 import { Router } from "express";
 import { SubjectController } from "../controllers/subjectControllers";
+import {
+  ensureAuthenticated,
+  authorize,
+  checkStaffPosition,
+} from "../middlewares/auth";
 
 const router = Router();
 
 router.get("/", SubjectController.get);
+router.get("/get-subject-with-exam", SubjectController.getSubjectWithExam);
 router.get("/:id", SubjectController.getByID);
-router.post("/", SubjectController.create);
-router.put("/:id", SubjectController.update);
-router.delete("/:id", SubjectController.delete);
+router.post(
+  "/",
+  ensureAuthenticated,
+  authorize([1, 2]),
+  checkStaffPosition(["moderator"]),
+  SubjectController.create
+);
+router.put(
+  "/:id",
+  ensureAuthenticated,
+  authorize([1, 2]),
+  checkStaffPosition(["moderator"]),
+  SubjectController.update
+);
+router.delete(
+  "/:id",
+  ensureAuthenticated,
+  authorize([1, 2]),
+  checkStaffPosition(["moderator"]),
+  SubjectController.delete
+);
 router.get("/type-skill/:id", SubjectController.getSubjectByskillType);
 export default router;

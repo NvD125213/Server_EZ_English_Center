@@ -1,16 +1,14 @@
-import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 import { AuthType, LoginType } from "../Types/authType";
 import { UserType } from "../Types/userType";
 import { sendEmailOTP } from "../middlewares/auth";
 import bcrypt from "bcryptjs";
-import crypto from "crypto";
 import { OAuth2Client } from "google-auth-library";
 import jwt from "jsonwebtoken";
 import "../config/passport";
 import { sendOTP } from "../libs/mailer";
-
-const prisma = new PrismaClient();
+import prisma from "../config/prisma";
+import admin from "../libs/firebase-admin";
 
 export interface LogoutRequest extends Request {
   user?: UserType;
@@ -179,13 +177,23 @@ export const AuthController = {
         });
       }
 
-      // Xóa refresh token cũ
-      await prisma.refreshToken.delete({
-        where: {
-          id: userRefreshToken.id,
-        },
-      });
+      // Kiểm tra thời gian hết hạn của refresh token
+      const refreshTokenExp = decodedRefreshToken.exp;
+      const currentTime = Math.floor(Date.now() / 1000);
 
+      // Nếu refresh token đã hết hạn, xóa nó
+      if (refreshTokenExp && refreshTokenExp < currentTime) {
+        await prisma.refreshToken.delete({
+          where: {
+            id: userRefreshToken.id,
+          },
+        });
+        return res.status(401).json({
+          message: "Refresh token expired",
+        });
+      }
+
+      // Tạo access token mới
       const accessToken = jwt.sign(
         {
           id: decodedRefreshToken.id,
@@ -204,6 +212,17 @@ export const AuthController = {
       });
     } catch (err: any) {
       if (err instanceof jwt.TokenExpiredError) {
+        // Khi token hết hạn, xóa nó khỏi database
+        try {
+          await prisma.refreshToken.delete({
+            where: {
+              token: refreshToken,
+            },
+          });
+        } catch (deleteError) {
+          console.error("Error deleting expired refresh token:", deleteError);
+        }
+
         return res.status(401).json({
           message: "Session expired",
         });
@@ -385,6 +404,14 @@ export const AuthController = {
         where: {
           id: userId,
         },
+        include: {
+          staffs: {
+            select: {
+              position: true,
+              photo: true,
+            },
+          },
+        },
       });
 
       return res.status(200).json(user);
@@ -392,6 +419,94 @@ export const AuthController = {
       return res.status(500).json({
         status: "FAILED",
         message: err.message,
+      });
+    }
+  },
+
+  GoogleSignInFirebase: async (req: Request, res: Response): Promise<any> => {
+    try {
+      // Lấy chuỗi idToken từ req.body.idToken.idToken
+      const idToken = req.body.idToken?.idToken;
+
+      // Kiểm tra idToken
+      if (!idToken || typeof idToken !== "string" || idToken.trim() === "") {
+        console.error("Token ID không hợp lệ:", idToken);
+        return res
+          .status(400)
+          .json({ message: "Token ID không hợp lệ: Phải là chuỗi không rỗng" });
+      }
+
+      console.log("Đang xác minh idToken:", idToken.substring(0, 10) + "...");
+
+      // Xác minh token ID bằng Firebase Admin
+      const decodedToken = await admin.auth().verifyIdToken(idToken);
+      const { email, name } = decodedToken;
+
+      if (!email) {
+        return res.status(400).json({ message: "Email là bắt buộc" });
+      }
+
+      // Kiểm tra người dùng
+      let user = await prisma.user.findUnique({
+        where: { email },
+      });
+
+      if (!user) {
+        // Tạo người dùng mới nếu chưa tồn tại
+        user = await prisma.user.create({
+          data: {
+            email,
+            full_name: name || email.split("@")[0],
+            password: "", // Mật khẩu rỗng cho đăng nhập qua Google
+            role: 3,
+            phone_number: "",
+            is_active: true,
+          },
+        });
+      }
+
+      // Xóa refresh token cũ
+      await prisma.refreshToken.deleteMany({
+        where: { userId: user.id },
+      });
+
+      // Tạo token mới
+      const accessToken = jwt.sign(
+        { id: user.id, role: user.role },
+        process.env.ACCESS_TOKEN_PRIVATE_KEY!,
+        { subject: "accessApi", expiresIn: "1h" }
+      );
+
+      const refreshToken = jwt.sign(
+        { id: user.id, role: user.role },
+        process.env.REFRESH_TOKEN_PRIVATE_KEY!,
+        { subject: "refreshToken", expiresIn: "7d" }
+      );
+
+      // Lưu refresh token
+      await prisma.refreshToken.create({
+        data: {
+          userId: user.id,
+          token: refreshToken,
+        },
+      });
+
+      return res.status(200).json({
+        message: "Đăng nhập thành công",
+        user: {
+          id: user.id,
+          email: user.email,
+          full_name: user.full_name,
+          role: user.role,
+        },
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+    } catch (error: any) {
+      console.error("Lỗi đăng nhập Google:", error);
+      return res.status(500).json({
+        message: "Xác thực thất bại",
+        error: error.message,
       });
     }
   },

@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { PartController } from "../controllers/partControllers";
+import { TeacherController } from "../controllers/teacherController";
+import { uploadPhoto, handleUploadError } from "../middlewares/photoUpload";
 import {
   ensureAuthenticated,
   authorize,
@@ -8,28 +9,33 @@ import {
 
 const router = Router();
 
-router.get("/", PartController.get);
-router.get("/:id", PartController.getByID);
+// Teacher routes
+router.get("/", TeacherController.get);
+router.get("/:id", TeacherController.getByID);
 router.post(
   "/",
   ensureAuthenticated,
   authorize([1, 2]),
   checkStaffPosition(["moderator"]),
-  PartController.create
+  uploadPhoto,
+  handleUploadError,
+  TeacherController.create
 );
 router.put(
   "/:id",
   ensureAuthenticated,
   authorize([1, 2]),
   checkStaffPosition(["moderator"]),
-  PartController.update
+  uploadPhoto,
+  handleUploadError,
+  TeacherController.update
 );
 router.delete(
   "/:id",
   ensureAuthenticated,
   authorize([1, 2]),
   checkStaffPosition(["moderator"]),
-  PartController.delete
+  TeacherController.delete
 );
 
 export default router;
