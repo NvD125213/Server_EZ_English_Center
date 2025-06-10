@@ -17,6 +17,9 @@ import WeekdayRoutes from "./routes/weekday.route";
 import VNPayRoutes from "./routes/payment.route";
 import HistoryRoutes from "./routes/history.route";
 import CommentRoutes from "./routes/comment.route";
+import AiRoutes from "./routes/ai.route";
+import StatisticalRoutes from "./routes/statistical.route";
+import ConsultantRoutes from "./routes/consultant.routes";
 import { startPaymentTimeoutChecker } from "./crontabs/paymentTimeoutChecker";
 // import UploadRoutes from "./routes/upload.route";
 import {
@@ -115,7 +118,9 @@ app.use("/api/weekday", WeekdayRoutes);
 app.use("/api/vnpay", VNPayRoutes);
 app.use("/api/history", HistoryRoutes);
 app.use("/api/comment", CommentRoutes);
-
+app.use("/api/statistical", StatisticalRoutes);
+app.use("/api/consultation", ConsultantRoutes);
+app.use("/api/ai", AiRoutes);
 // Lắng nghe sự kiện kết nối từ client
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);

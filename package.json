@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "nodemon --exec tsx src/index.ts",
     "build": "tsc",
-    "start": "node --exec tsx src/index.ts"
+    "start": "node --exec tsx src/index.ts",
+    "convertExcelToJson": "tsx src/libs/excel-to-json.ts",
+    "Embedding": "tsx src/utils/generateEmbeddings.ts"
   },
   "keywords": [],
   "author": "",
@@ -57,11 +59,13 @@
     "multer-storage-cloudinary": "^4.0.0",
     "node-cron": "^4.1.0",
     "nodemailer": "^6.10.0",
+    "openai": "^5.1.1",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-google-oidc": "^0.1.0",
     "socket.io": "^4.8.1",
     "speakeasy": "^2.0.0",
+    "xlsx": "^0.18.5",
     "zod": "^3.25.51"
   }
 }
