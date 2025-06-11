@@ -1,11 +1,10 @@
-import { PrismaClient } from "@prisma/client";
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import jwt from "jsonwebtoken";
-import { UserType } from "../Types/userType";
-import { sendOTP } from "../libs/mailer";
+import { UserType } from "../Types/userType.js";
+import { sendOTP } from "../libs/mailer.js";
 import bcrypt from "bcryptjs";
-import { tokenBlacklist } from "../controllers/authController";
-import prisma from "../config/prisma";
+import { tokenBlacklist } from "../controllers/authController.js";
+import prisma from "../config/prisma.js";
 
 interface EmailOtpType {
   email: string;

@@ -1,14 +1,14 @@
 import { Request, Response } from "express";
-import { AuthType, LoginType } from "../Types/authType";
-import { UserType } from "../Types/userType";
-import { sendEmailOTP } from "../middlewares/auth";
+import { AuthType, LoginType } from "../Types/authType.js";
+import { UserType } from "../Types/userType.js";
+import { sendEmailOTP } from "../middlewares/auth.js";
 import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
 import jwt from "jsonwebtoken";
 import "../config/passport";
-import { sendOTP } from "../libs/mailer";
-import prisma from "../config/prisma";
-import admin from "../libs/firebase-admin";
+import { sendOTP } from "../libs/mailer.js";
+import prisma from "../config/prisma.js";
+import admin from "../libs/firebase-admin.js";
 
 export interface LogoutRequest extends Request {
   user?: UserType;

@@ -1,5 +1,4 @@
 import { body, query } from "express-validator";
-import { Option } from "../Types/question"; // Import Option enum nếu cần
 
 export const createQuestionValidator = [
   // Validate query parameters

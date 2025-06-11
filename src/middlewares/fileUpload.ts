@@ -1,7 +1,7 @@
-import cloudinary from "../config/cloudinary"; // adjust path if needed
+import cloudinary from "../config/cloudinary.js"; // adjust path if needed
 import { Request, Response, NextFunction } from "express";
 import { PrismaClient } from "@prisma/client";
-import { storage } from "../config/multer";
+import { storage } from "../config/multer.js";
 import path from "path";
 import multer from "multer";
 import { promises as fs } from "fs";

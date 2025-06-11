@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { PartController } from "../controllers/partControllers";
+import { PartController } from "../controllers/partControllers.js";
 import {
   ensureAuthenticated,
   authorize,
   checkStaffPosition,
-} from "../middlewares/auth";
+} from "../middlewares/auth.js";
 
 const router = Router();
 

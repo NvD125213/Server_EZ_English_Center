@@ -1,10 +1,10 @@
 import express from "express";
-import { WeekdayController } from "../controllers/weekdayController";
+import { WeekdayController } from "../controllers/weekdayController.js";
 import {
   ensureAuthenticated,
   authorize,
   checkStaffPosition,
-} from "../middlewares/auth";
+} from "../middlewares/auth.js";
 
 const router = express.Router();
 

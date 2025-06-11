@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import prisma from "../config/prisma";
+import prisma from "../config/prisma.js";
 
 export function startPaymentTimeoutChecker() {
   cron.schedule("*/5 * * * *", async () => {

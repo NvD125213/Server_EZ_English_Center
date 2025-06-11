@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import prisma from "../config/prisma";
+import prisma from "../config/prisma.js";
 
 export const UserController = {
   getCurrentUser: async (req: Request, res: Response): Promise<any> => {

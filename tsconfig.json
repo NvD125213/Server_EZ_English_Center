@@ -3,12 +3,17 @@
     "module": "ESNext",
     "moduleResolution": "node",
     "esModuleInterop": true,
+    "resolveJsonModule": true,
     "target": "ESNext",
     "rootDir": "src",
     "outDir": "dist",
     "noEmit": false,
     "strict": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "baseUrl": "./src",
+    "paths": {
+      "*": ["*"]
+    }
   },
   "include": ["src/**/*"]
 }

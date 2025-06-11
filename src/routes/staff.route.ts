@@ -1,10 +1,10 @@
 import express from "express";
-import { StaffController } from "../controllers/staffController";
+import { StaffController } from "../controllers/staffController.js";
 import {
   ensureAuthenticated,
   authorize,
   checkStaffPosition,
-} from "../middlewares/auth";
+} from "../middlewares/auth.js";
 const router = express.Router();
 
 // Staff management routes

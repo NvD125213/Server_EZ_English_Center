@@ -1,9 +1,9 @@
-import prisma from "../config/prisma";
-import { createVNPayChecksum } from "../libs/vnpayment";
-import { htmlPaymentForm } from "../utils/paymentForm";
+import prisma from "../config/prisma.js";
+import { createVNPayChecksum } from "../libs/vnpayment.js";
+import { htmlPaymentForm } from "../utils/paymentForm.js";
 import { Request, Response, RequestHandler } from "express";
-import { sendPaymentConfirmation } from "../libs/mailer";
-import { io } from "../index";
+import { sendPaymentConfirmation } from "../libs/mailer.js";
+import { io } from "../index.js";
 
 export const PaymentController = {
   handlePaymentReturn: (async (req: Request, res: Response): Promise<void> => {

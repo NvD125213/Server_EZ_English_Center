@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { AuthController } from "../controllers/authController";
-import { validateRegister, validateLogin } from "../validates/authValidate";
-import { handleValidation } from "../middlewares/handleValidation";
+import { AuthController } from "../controllers/authController.js";
+import { validateRegister, validateLogin } from "../validates/authValidate.js";
+import { handleValidation } from "../middlewares/handleValidation.js";
 import passport from "passport";
-import "../config/passport";
-import { ensureAuthenticated } from "../middlewares/auth";
+import "../config/passport.js";
+import { ensureAuthenticated } from "../middlewares/auth.js";
 const router = Router();
 
 router.post(

@@ -1,16 +1,16 @@
 import { RequestHandler, Router } from "express";
-import { QuestionController } from "../controllers/questionController";
-import { createQuestionValidator } from "../validates/questionValidate";
+import { QuestionController } from "../controllers/questionController.js";
+import { createQuestionValidator } from "../validates/questionValidate.js";
 import {
   ensureUploadDirForQuestion,
   ensureUploadDirForExcel,
   uploadMiddleware,
-} from "../middlewares/fileUpload";
+} from "../middlewares/fileUpload.js";
 import {
   ensureAuthenticated,
   authorize,
   checkStaffPosition,
-} from "../middlewares/auth";
+} from "../middlewares/auth.js";
 
 import express from "express";
 

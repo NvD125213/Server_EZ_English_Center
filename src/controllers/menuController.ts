@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { Prisma, MenuStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import prisma from "../config/prisma";
+import prisma from "../config/prisma.js";
 
 // Helper function to check for circular parent-child relationships
 async function checkCircularParent(

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { z } from "zod";
-import prisma from "../config/prisma";
+import prisma from "../config/prisma.js";
 
 // Validation schemas
 const createCourseSchema = z.object({

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { MenuController } from "../controllers/menuController";
+import { MenuController } from "../controllers/menuController.js";
 import {
   ensureAuthenticated,
   authorize,

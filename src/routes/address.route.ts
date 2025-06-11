@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { AddressController } from "../controllers/addressController";
+import { AddressController } from "../controllers/addressController.js";
 import {
   ensureAuthenticated,
   authorize,
   checkStaffPosition,
-} from "../middlewares/auth";
+} from "../middlewares/auth.js";
 const router = Router();
 
 router.get("/provinces", AddressController.getProvinces);

@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { StatisticalController } from "../controllers/statisticalController";
-import { authorize, ensureAuthenticated } from "../middlewares/auth";
+import { StatisticalController } from "../controllers/statisticalController.js";
+import { authorize, ensureAuthenticated } from "../middlewares/auth.js";
 
 const router = Router();
 router.get(

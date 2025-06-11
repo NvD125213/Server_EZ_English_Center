@@ -1,11 +1,11 @@
 import { Router } from "express";
-import { TeacherController } from "../controllers/teacherController";
-import { uploadPhoto, handleUploadError } from "../middlewares/photoUpload";
+import { TeacherController } from "../controllers/teacherController.js";
+import { uploadPhoto, handleUploadError } from "../middlewares/photoUpload.js";
 import {
   ensureAuthenticated,
   authorize,
   checkStaffPosition,
-} from "../middlewares/auth";
+} from "../middlewares/auth.js";
 
 const router = Router();
 

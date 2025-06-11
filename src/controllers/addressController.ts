@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { Option, Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import prisma from "../config/prisma";
+import prisma from "../config/prisma.js";
 import { geocodeAddress } from "../utils/googleMapApi";
 import axios from "axios";
 

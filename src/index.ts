@@ -1,32 +1,28 @@
 import express from "express";
-import SubjectRouters from "./routes/subject.route";
-import ExamRouters from "./routes/exam.route";
-import PartRoutes from "./routes/part.route";
-import AuthRoutes from "./routes/auth.route";
-import UserRoutes from "./routes/user.route";
-import QuestionRoutes from "./routes/question.route";
-import MenuRoutes from "./routes/menu.route";
-import CourseRoutes from "./routes/course.route";
-import TeacherRoutes from "./routes/teacher.route";
-import BlogRoutes from "./routes/blog.route";
-import AnswerRoutes from "./routes/answer.route";
-import StaffRoutes from "./routes/staff.route";
-import ClassRoutes from "./routes/class.route";
-import AddressRoutes from "./routes/address.route";
-import WeekdayRoutes from "./routes/weekday.route";
-import VNPayRoutes from "./routes/payment.route";
-import HistoryRoutes from "./routes/history.route";
-import CommentRoutes from "./routes/comment.route";
-import AiRoutes from "./routes/ai.route";
-import StatisticalRoutes from "./routes/statistical.route";
-import ConsultantRoutes from "./routes/consultant.routes";
-import { startPaymentTimeoutChecker } from "./crontabs/paymentTimeoutChecker";
+import SubjectRouters from "./routes/subject.route.js";
+import ExamRouters from "./routes/exam.route.js";
+import PartRoutes from "./routes/part.route.js";
+import AuthRoutes from "./routes/auth.route.js";
+import UserRoutes from "./routes/user.route.js";
+import QuestionRoutes from "./routes/question.route.js";
+import MenuRoutes from "./routes/menu.route.js";
+import CourseRoutes from "./routes/course.route.js";
+import TeacherRoutes from "./routes/teacher.route.js";
+import BlogRoutes from "./routes/blog.route.js";
+import AnswerRoutes from "./routes/answer.route.js";
+import StaffRoutes from "./routes/staff.route.js";
+import ClassRoutes from "./routes/class.route.js";
+import AddressRoutes from "./routes/address.route.js";
+import WeekdayRoutes from "./routes/weekday.route.js";
+import VNPayRoutes from "./routes/payment.route.js";
+import HistoryRoutes from "./routes/history.route.js";
+import CommentRoutes from "./routes/comment.route.js";
+import AiRoutes from "./routes/ai.route.js";
+import StatisticalRoutes from "./routes/statistical.route.js";
+import ConsultantRoutes from "./routes/consultant.routes.js";
+import { startPaymentTimeoutChecker } from "./crontabs/paymentTimeoutChecker.js";
 // import UploadRoutes from "./routes/upload.route";
-import {
-  authorize,
-  ensureAuthenticated,
-  checkStaffPosition,
-} from "./middlewares/auth";
+import { authorize, ensureAuthenticated } from "./middlewares/auth.js";
 import session from "express-session";
 import cors from "cors";
 import passport from "passport";
@@ -136,8 +132,8 @@ io.on("connection", (socket) => {
   });
 });
 
-server.listen(3000, async () => {
-  console.log("Server started on port 3000");
+server.listen(4000, async () => {
+  console.log("Server started on port 4000");
   startPaymentTimeoutChecker();
 });
 

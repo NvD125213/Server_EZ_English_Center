@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { AnswerController } from "../controllers/answerController";
-import { ensureAuthenticated } from "../middlewares/auth";
+import { AnswerController } from "../controllers/answerController.js";
+import { ensureAuthenticated } from "../middlewares/auth.js";
 const router = Router();
 
 // Teacher routes

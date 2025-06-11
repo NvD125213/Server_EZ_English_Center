@@ -1,10 +1,10 @@
 import { Request, Response } from "express";
 import { PaymentStatus, Prisma } from "@prisma/client";
 import { z } from "zod";
-import prisma from "../config/prisma";
-import { checkTeacherScheduleConflict } from "../utils/checkTeacher";
-import { generatePaymentUrl } from "../libs/vnpayment";
-import { sendMailPayment } from "../libs/mailer";
+import prisma from "../config/prisma.js";
+import { checkTeacherScheduleConflict } from "../utils/checkTeacher.js";
+import { generatePaymentUrl } from "../libs/vnpayment.js";
+import { sendMailPayment } from "../libs/mailer.js";
 import bcrypt from "bcryptjs";
 
 // Validation schemas

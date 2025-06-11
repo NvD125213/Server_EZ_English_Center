@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { Option } from "@prisma/client";
 import { z } from "zod";
-import prisma from "../config/prisma";
+import prisma from "../config/prisma.js";
 
 // Schema validation for request body
 const submitExamSchema = z.object({

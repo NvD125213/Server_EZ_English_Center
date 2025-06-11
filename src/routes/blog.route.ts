@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { BlogController } from "../controllers/blogController";
+import { BlogController } from "../controllers/blogController.js";
 import {
   ensureAuthenticated,
   authorize,
   checkStaffPosition,
-} from "../middlewares/auth";
+} from "../middlewares/auth.js";
 
 const router = Router();
 
