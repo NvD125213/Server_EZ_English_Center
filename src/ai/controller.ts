@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import OpenAI from "openai";
 import fs from "fs";
 import dotenv from "dotenv";
-import { io } from "../index";
+import { io } from "../index.js";
 
 dotenv.config();
 

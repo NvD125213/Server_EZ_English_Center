@@ -5,7 +5,7 @@ import { sendEmailOTP } from "../middlewares/auth.js";
 import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
 import jwt from "jsonwebtoken";
-import "../config/passport";
+import "../config/passport.js";
 import { sendOTP } from "../libs/mailer.js";
 import prisma from "../config/prisma.js";
 import admin from "../libs/firebase-admin.js";

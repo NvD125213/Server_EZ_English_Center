@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import prisma from "../config/prisma.js";
-import { geocodeAddress } from "../utils/googleMapApi";
+import { geocodeAddress } from "../utils/googleMapApi.js";
 import axios from "axios";
 
 const createAddressSchema = z.object({

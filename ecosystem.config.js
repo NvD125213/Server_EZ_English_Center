@@ -1,10 +1,10 @@
 module.exports = [
   {
-    name: "English-Center",
+    name: "server_english_center_v1",
     script: "./dist/index.js",
     env: {
       NODE_ENV: "production",
-      PORT: 1001,
+      PORT: 4000,
     },
   },
 ];

@@ -132,7 +132,7 @@ io.on("connection", (socket) => {
   });
 });
 
-server.listen(4000, async () => {
+server.listen(process.env.PORT || 4000, async () => {
   console.log("Server started on port 4000");
   startPaymentTimeoutChecker();
 });
