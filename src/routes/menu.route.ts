@@ -4,7 +4,7 @@ import {
   ensureAuthenticated,
   authorize,
   checkStaffPosition,
-} from "../middlewares/auth";
+} from "../middlewares/auth.js";
 
 const router = Router();
 
