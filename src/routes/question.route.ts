@@ -61,7 +61,6 @@ router.put(
   authorize([1, 2]),
   checkStaffPosition(["moderator"]),
   ensureUploadDirForQuestion as RequestHandler,
-  uploadMiddleware,
   QuestionController.update
 );
 
