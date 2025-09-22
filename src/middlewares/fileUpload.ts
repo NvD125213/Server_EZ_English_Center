@@ -6,6 +6,7 @@ import path from "path";
 import multer from "multer";
 import { promises as fs } from "fs";
 import { fileURLToPath } from "url";
+import { UploadApiResponse } from "cloudinary";
 
 const prisma = new PrismaClient();
 
@@ -13,10 +14,49 @@ const prisma = new PrismaClient();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export const uploadToCloudinary = async (fileUrl: string, folder: string) => {
-  return await cloudinary.uploader.upload(fileUrl, {
-    resource_type: "auto",
-    folder: folder,
+export const uploadToCloudinary = async (
+  filePath: string,
+  folder: string,
+  mimetype?: string
+): Promise<UploadApiResponse> => {
+  return new Promise((resolve, reject) => {
+    // Nếu là audio => dùng resource_type: "video"
+    const options: any = { folder };
+    if (mimetype?.startsWith("audio")) {
+      options.resource_type = "video";
+    }
+
+    cloudinary.uploader.upload(filePath, options, (error, result) => {
+      if (error) return reject(error);
+      resolve(result as UploadApiResponse);
+    });
+  });
+};
+
+export const getCloudinarySignature = (req: Request, res: Response) => {
+  const { examId, partId } = req.query;
+
+  const timestamp = Math.round(new Date().getTime() / 1000);
+
+  // Tạo folder dạng /exam_id/part_id
+  const folder = `exam_${examId}/part_${partId}`;
+
+  const paramsToSign = {
+    timestamp,
+    folder,
+  };
+
+  const signature = cloudinary.utils.api_sign_request(
+    paramsToSign,
+    process.env.API_SECRET_CLOUDINARY!
+  );
+
+  res.json({
+    timestamp,
+    signature,
+    cloudName: process.env.CLOUD_NAME,
+    apiKey: process.env.API_KEY_CLOUDINARY,
+    folder,
   });
 };
 
@@ -58,7 +98,6 @@ export const ensureUploadDirForQuestion = async (
   next: Function
 ) => {
   const { exam_id, part_id, question_id } = req.query;
-  console.log("Debug - Request query:", { exam_id, part_id, question_id });
 
   // Initialize req.body if it doesn't exist
   if (!req.body) {
@@ -68,13 +107,10 @@ export const ensureUploadDirForQuestion = async (
   try {
     // Create base uploads directory if it doesn't exist
     const baseUploadPath = path.join(process.cwd(), "uploads");
-    console.log("Debug - Base upload path:", baseUploadPath);
 
     try {
       await fs.access(baseUploadPath);
-      console.log("Debug - Uploads directory exists");
     } catch {
-      console.log("Debug - Creating uploads directory");
       await fs.mkdir(baseUploadPath, { recursive: true });
     }
 
@@ -104,7 +140,6 @@ export const ensureUploadDirForQuestion = async (
       });
 
       if (!question) {
-        console.log("Debug - Question not found");
         return res.status(404).json({ error: "Question not found" });
       }
 
@@ -125,7 +160,6 @@ export const ensureUploadDirForQuestion = async (
       }
 
       if (!examPart) {
-        console.log("Debug - No examPart found");
         return res
           .status(400)
           .json({ error: "Cannot determine exam/part for upload path" });

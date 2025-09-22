@@ -1,7 +1,6 @@
 import { PrismaClient, TypeElement } from "@prisma/client";
 import { Request, Response } from "express";
-import path from "path";
-import { promises as fs } from "fs";
+import { uploadToCloudinary } from "../middlewares/fileUpload.js";
 
 const prisma = new PrismaClient();
 
@@ -283,12 +282,12 @@ export const QuestionController = {
 
   createQuestion: async (req: Request, res: Response): Promise<any> => {
     const { part_id, exam_id } = req.query;
-    const { description, type_group, questions } = req.body;
-    const files = req.files as Express.Multer.File[];
-    let pathDir = "";
+    const { description, type_group, title, elements, questions } = req.body;
+
     if (!type_group) {
-      let initialTypeG = 1;
+      req.body.type_group = 1;
     }
+
     if (!exam_id || !part_id) {
       return res.status(400).json({ error: "Exam or part is required!" });
     }
@@ -298,6 +297,7 @@ export const QuestionController = {
         id: Number(part_id),
       },
     });
+
     const exam_name = await prisma.exam.findUnique({
       where: {
         id: Number(exam_id),
@@ -308,11 +308,9 @@ export const QuestionController = {
       return res.status(404).json({ error: "Part or Exam not found" });
     }
 
-    if (!pathDir) {
-      const sanitizedExamName = exam_name.name.replace(/[^a-zA-Z0-9]/g, "_");
-      const sanitizedPartName = part_name.name.replace(/[^a-zA-Z0-9]/g, "_");
-      pathDir = `${sanitizedExamName}/${sanitizedPartName}`;
-    }
+    const sanitizedExamName = exam_name.name.replace(/[^a-zA-Z0-9]/g, "_");
+    const sanitizedPartName = part_name.name.replace(/[^a-zA-Z0-9]/g, "_");
+    const pathDir = `${sanitizedExamName}/${sanitizedPartName}`;
 
     try {
       return await prisma.$transaction(
@@ -332,22 +330,31 @@ export const QuestionController = {
               order: (lastGroup?.order ?? 0) + 1,
               type_group: Number(type_group),
               description,
-              title: req.body.title,
+              title,
             },
           });
 
-          // Upload group elements
-          const groupElements = files.filter(
-            (file) => file.fieldname === "elements"
-          );
-          if (groupElements.length > 0) {
-            for (const el of groupElements) {
+          // Kiểm tra elements của group
+          if (elements && elements.length > 0) {
+            const invalidElement = elements.find((el: any) => !el.url);
+            if (invalidElement) {
+              console.error(
+                "[BE] Nhận được group element thiếu url:",
+                elements
+              );
+              return res
+                .status(400)
+                .json({ error: "Có tệp đính kèm nhóm câu hỏi thiếu URL!" });
+            }
+            // Lưu các elements của group (đã được upload lên Cloudinary từ frontend)
+            for (const element of elements) {
               await tx.element.create({
                 data: {
-                  type: el.mimetype.startsWith("image")
-                    ? "image"
-                    : ("audio" as "image" | "audio"),
-                  url: `/uploads/${pathDir}/${el.filename}`,
+                  type:
+                    element.type === "image"
+                      ? TypeElement.image
+                      : TypeElement.audio,
+                  url: element.url,
                   group_id: newGroup.id,
                 },
               });
@@ -370,7 +377,6 @@ export const QuestionController = {
           for (let i = 0; i < questions.length; i++) {
             const q = questions[i];
 
-            // Parse options from JSON string if it's a string
             let options = q.option;
             if (typeof options === "string") {
               try {
@@ -380,6 +386,20 @@ export const QuestionController = {
                 return res
                   .status(400)
                   .json({ error: "Invalid options format" });
+              }
+            }
+
+            // Kiểm tra elements của từng question
+            if (q.elements && q.elements.length > 0) {
+              const invalidQElement = q.elements.find((el: any) => !el.url);
+              if (invalidQElement) {
+                console.error(
+                  `[BE] Nhận được question element thiếu url (question index ${i}):`,
+                  q.elements
+                );
+                return res.status(400).json({
+                  error: `Có tệp đính kèm câu hỏi thứ ${i + 1} thiếu URL!`,
+                });
               }
             }
 
@@ -396,12 +416,11 @@ export const QuestionController = {
 
             const startOrder = maxOrder?.order ?? 0;
 
-            // Create question with parsed options
             const createdQuestion = await tx.question.create({
               data: {
                 title: q.title,
                 description: q.description,
-                option: options, // Now storing as JSON object
+                option: options,
                 correct_option: q.correct_option,
                 score: Number(q.score),
                 order: startOrder + i + 1,
@@ -411,19 +430,16 @@ export const QuestionController = {
               },
             });
 
-            // Upload question elements
-            const questionElements = files.filter((file) =>
-              file.fieldname.startsWith(`questions[${i}][elements]`)
-            );
-
-            if (questionElements.length > 0) {
-              for (const file of questionElements) {
+            // Lưu các elements của question (đã được upload lên Cloudinary từ frontend)
+            if (q.elements && q.elements.length > 0) {
+              for (const element of q.elements) {
                 await tx.element.create({
                   data: {
-                    type: file.mimetype.startsWith("image")
-                      ? "image"
-                      : ("audio" as "image" | "audio"),
-                    url: `/uploads/${pathDir}/${file.filename}`,
+                    type:
+                      element.type === "image"
+                        ? TypeElement.image
+                        : TypeElement.audio,
+                    url: element.url,
                     question_id: createdQuestion.id,
                   },
                 });
@@ -445,21 +461,17 @@ export const QuestionController = {
       return res.status(500).json({ error: err.message });
     }
   },
-
   update: async (req: Request, res: Response): Promise<any> => {
     const { question_id } = req.query;
-    const { title, description, option, correct_option, score, global_order } =
-      req.body;
-    const files = req.files as Express.Multer.File[];
-
-    console.log("Debug - Update request:", {
-      question_id,
-      files: files?.map((f) => ({
-        filename: f.filename,
-        path: f.path,
-        fieldname: f.fieldname,
-      })),
-    });
+    const {
+      title,
+      description,
+      option,
+      correct_option,
+      score,
+      global_order,
+      elements,
+    } = req.body;
 
     if (!question_id) {
       return res.status(400).json({ error: "Question ID is required!" });
@@ -467,97 +479,59 @@ export const QuestionController = {
 
     try {
       return await prisma.$transaction(async (tx) => {
-        // Get the question with its elements to check old file paths
         const existingQuestion = await tx.question.findUnique({
           where: { id: Number(question_id) },
-          include: {
-            elements: true,
-            group: {
-              include: {
-                part: {
-                  include: {
-                    examParts: {
-                      include: {
-                        exam: true,
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
+          include: { elements: true },
         });
 
         if (!existingQuestion) {
           return res.status(404).json({ error: "Question not found" });
         }
 
-        console.log("Debug - Existing question:", {
-          id: existingQuestion.id,
-          elements: existingQuestion.elements,
-        });
-
-        // Use pathDir set by middleware
-        const oldPathDir = (req as any).pathDir;
-        console.log("Debug - PathDir:", oldPathDir);
-
-        // Parse options from JSON string if it's a string
+        // Parse options JSON
         let parsedOptions = option;
         if (typeof option === "string") {
           try {
             parsedOptions = JSON.parse(option);
-          } catch (e) {
-            console.error("Error parsing options JSON:", e);
+          } catch {
             return res.status(400).json({ error: "Invalid options format" });
           }
         }
 
-        // Update question with parsed options
+        // Update question
         const updatedQuestion = await tx.question.update({
           where: { id: Number(question_id) },
           data: {
             title,
             description,
-            option: parsedOptions, // Now storing as JSON object
+            option: parsedOptions,
             correct_option,
             score: Number(score),
             global_order: Number(global_order),
           },
         });
 
-        // Handle new files if any
-        if (files && files.length > 0) {
-          console.log("Debug - Processing new files");
-
-          // Delete old elements and their files
-          for (const element of existingQuestion.elements) {
-            const filePath = path.join(process.cwd(), element.url);
-            console.log("Debug - Deleting old file:", filePath);
-            try {
-              await fs.unlink(filePath);
-            } catch (error) {
-              console.error(`Error deleting file ${filePath}:`, error);
-            }
+        // 🔄 Update elements
+        if (elements && elements.length > 0) {
+          // Kiểm tra element hợp lệ (có url)
+          const invalidElement = elements.find((el: any) => !el.url);
+          if (invalidElement) {
+            return res.status(400).json({ error: "Có element thiếu URL!" });
           }
 
+          // Xoá elements cũ
           await tx.element.deleteMany({
             where: { question_id: Number(question_id) },
           });
 
-          // Create new elements with the same directory structure
-          const uploadedElements = files.map((file) => {
-            const element = {
-              type: file.mimetype.startsWith("image")
-                ? TypeElement.image
-                : TypeElement.audio,
-              url: `/uploads/${oldPathDir}/${file.filename}`,
-              question_id: Number(question_id),
-            };
-            console.log("Debug - Creating new element:", element);
-            return element;
-          });
+          // Lưu elements mới
+          const newElements = elements.map((el: any) => ({
+            type: el.type === "image" ? TypeElement.image : TypeElement.audio,
+            url: el.url,
+            question_id: Number(question_id),
+          }));
 
-          await tx.element.createMany({ data: uploadedElements });
+          await tx.element.createMany({ data: newElements });
         }
 
         return res.status(200).json({

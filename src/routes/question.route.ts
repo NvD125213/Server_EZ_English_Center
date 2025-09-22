@@ -11,6 +11,7 @@ import {
   authorize,
   checkStaffPosition,
 } from "../middlewares/auth.js";
+import { getCloudinarySignature } from "../middlewares/fileUpload.js";
 
 import express from "express";
 
@@ -26,14 +27,20 @@ router.get(
   QuestionController.getAllQuestionOnExam
 );
 
+router.get(
+  "/signature",
+  ensureAuthenticated,
+  authorize([1, 2]),
+  checkStaffPosition(["moderator"]),
+  getCloudinarySignature
+);
+
 router.post(
   "/createQuestion",
   ensureAuthenticated,
   authorize([1, 2]),
   checkStaffPosition(["moderator"]),
   createQuestionValidator,
-  ensureUploadDirForQuestion as RequestHandler,
-  uploadMiddleware,
   QuestionController.createQuestion
 );
 

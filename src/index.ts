@@ -22,7 +22,11 @@ import StatisticalRoutes from "./routes/statistical.route.js";
 import ConsultantRoutes from "./routes/consultant.routes.js";
 import { startPaymentTimeoutChecker } from "./crontabs/paymentTimeoutChecker.js";
 // import UploadRoutes from "./routes/upload.route";
-import { authorize, ensureAuthenticated } from "./middlewares/auth.js";
+import {
+  authorize,
+  checkStaffPosition,
+  ensureAuthenticated,
+} from "./middlewares/auth.js";
 import session from "express-session";
 import cors from "cors";
 import passport from "passport";
@@ -30,6 +34,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import http from "http";
 import { Server } from "socket.io";
+import { getCloudinarySignature } from "middlewares/fileUpload.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -117,6 +122,7 @@ app.use("/api/comment", CommentRoutes);
 app.use("/api/statistical", StatisticalRoutes);
 app.use("/api/consultation", ConsultantRoutes);
 app.use("/api/ai", AiRoutes);
+
 // Lắng nghe sự kiện kết nối từ client
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);
