@@ -11,9 +11,10 @@ model User {
   id            Int             @id @default(autoincrement())
   full_name     String?
   email         String          @unique @default("")
-  phone_number  String          @unique @default("")
-  password      String          @default("")
-  googleId      String?         @unique
+  phone_number  String?          
+  password      String?
+  googleId      String?     
+  facebookId    String?    
   is_active     Boolean         @default(true)
   role          Int             @default(1)
   create_at     DateTime        @default(now())
@@ -170,7 +171,7 @@ model Answer {
   question_id     Int
   user_id         Int // <-- NEW: để gán user trả lời này
   exam_id         Int // <-- NEW: để group theo bài thi
-  selected_option String
+  selected_option String?
   is_correct      Boolean // <-- có thể thêm để chấm điểm dễ hơn
   created_at      DateTime  @default(now())
   updated_at      DateTime  @updatedAt

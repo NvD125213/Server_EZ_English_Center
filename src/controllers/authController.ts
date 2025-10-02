@@ -71,7 +71,7 @@ export const AuthController = {
       return res.status(401).json({ message: "Email or password is invalid" });
     }
 
-    const passwordMatch = await bcrypt.compare(password, user.password);
+    const passwordMatch = await bcrypt.compare(password, String(user.password));
     if (!passwordMatch) {
       return res.status(401).json({ message: "Email or password is invalid" });
     }
@@ -426,7 +426,7 @@ export const AuthController = {
   GoogleSignInFirebase: async (req: Request, res: Response): Promise<any> => {
     try {
       // Lấy chuỗi idToken từ req.body.idToken.idToken
-      const idToken = req.body.idToken?.idToken;
+      const idToken = req.body.idToken.idToken;
 
       // Kiểm tra idToken
       if (!idToken || typeof idToken !== "string" || idToken.trim() === "") {
@@ -435,8 +435,6 @@ export const AuthController = {
           .status(400)
           .json({ message: "Token ID không hợp lệ: Phải là chuỗi không rỗng" });
       }
-
-      console.log("Đang xác minh idToken:", idToken.substring(0, 10) + "...");
 
       // Xác minh token ID bằng Firebase Admin
       const decodedToken = await admin.auth().verifyIdToken(idToken);
@@ -452,14 +450,12 @@ export const AuthController = {
       });
 
       if (!user) {
-        // Tạo người dùng mới nếu chưa tồn tại
         user = await prisma.user.create({
           data: {
             email,
             full_name: name || email.split("@")[0],
-            password: "", // Mật khẩu rỗng cho đăng nhập qua Google
             role: 3,
-            phone_number: "",
+            googleId: decodedToken.user_id,
             is_active: true,
           },
         });

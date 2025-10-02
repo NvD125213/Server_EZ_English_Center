@@ -44,9 +44,14 @@ export const QuestionController = {
             where: {
               deleted_at: null,
             },
-            include: {
-              elements: true,
+            select: {
+              id: true,
+              title: true,
+              option: true,
+              global_order: true,
+              elements: true, // nếu elements là relation thì thay include bằng select
             },
+
             orderBy: {
               global_order: "asc",
             },
@@ -150,6 +155,7 @@ export const QuestionController = {
       return res.status(500).json({ error: "Internal server error" });
     }
   },
+
   getQuestionByPartAndExam: async (
     req: Request,
     res: Response
@@ -281,141 +287,114 @@ export const QuestionController = {
   },
 
   createQuestion: async (req: Request, res: Response): Promise<any> => {
-    const { part_id, exam_id } = req.query;
-    const { description, type_group, title, elements, questions } = req.body;
-
-    if (!type_group) {
-      req.body.type_group = 1;
-    }
-
-    if (!exam_id || !part_id) {
-      return res.status(400).json({ error: "Exam or part is required!" });
-    }
-
-    const part_name = await prisma.part.findUnique({
-      where: {
-        id: Number(part_id),
-      },
-    });
-
-    const exam_name = await prisma.exam.findUnique({
-      where: {
-        id: Number(exam_id),
-      },
-    });
-
-    if (!part_name || !exam_name) {
-      return res.status(404).json({ error: "Part or Exam not found" });
-    }
-
-    const sanitizedExamName = exam_name.name.replace(/[^a-zA-Z0-9]/g, "_");
-    const sanitizedPartName = part_name.name.replace(/[^a-zA-Z0-9]/g, "_");
-    const pathDir = `${sanitizedExamName}/${sanitizedPartName}`;
-
     try {
-      return await prisma.$transaction(
+      const { part_id, exam_id } = req.query;
+      let { description, type_group, title, elements, questions } = req.body;
+
+      // Validate exam_id & part_id
+      if (!exam_id || !part_id) {
+        return res
+          .status(400)
+          .json({ error: "Exam ID và Part ID là bắt buộc." });
+      }
+
+      // Default type_group
+      if (!type_group) {
+        type_group = 1;
+      }
+
+      // Kiểm tra exam & part tồn tại
+      const [exam, part] = await Promise.all([
+        prisma.exam.findUnique({ where: { id: Number(exam_id) } }),
+        prisma.part.findUnique({ where: { id: Number(part_id) } }),
+      ]);
+
+      if (!exam || !part) {
+        return res.status(404).json({ error: "Exam hoặc Part không tồn tại." });
+      }
+
+      // Transaction
+      const result = await prisma.$transaction(
         async (tx) => {
+          // Lấy group cuối cùng để tính order
           const lastGroup = await tx.questionGroup.findFirst({
-            where: {
-              part_id: Number(part_id),
-              exam_id: Number(exam_id),
-            },
+            where: { exam_id: Number(exam_id), part_id: Number(part_id) },
             orderBy: { order: "desc" },
           });
 
+          // Tạo group mới
           const newGroup = await tx.questionGroup.create({
             data: {
-              part_id: Number(part_id),
               exam_id: Number(exam_id),
-              order: (lastGroup?.order ?? 0) + 1,
+              part_id: Number(part_id),
               type_group: Number(type_group),
               description,
               title,
+              order: (lastGroup?.order ?? 0) + 1,
             },
           });
 
-          // Kiểm tra elements của group
-          if (elements && elements.length > 0) {
-            const invalidElement = elements.find((el: any) => !el.url);
-            if (invalidElement) {
-              console.error(
-                "[BE] Nhận được group element thiếu url:",
-                elements
-              );
-              return res
-                .status(400)
-                .json({ error: "Có tệp đính kèm nhóm câu hỏi thiếu URL!" });
-            }
-            // Lưu các elements của group (đã được upload lên Cloudinary từ frontend)
-            for (const element of elements) {
+          // Validate & lưu elements cho group
+          if (elements?.length > 0) {
+            for (const el of elements) {
+              if (!el.url) {
+                throw new Error("Có element trong group thiếu URL.");
+              }
               await tx.element.create({
                 data: {
                   type:
-                    element.type === "image"
-                      ? TypeElement.image
-                      : TypeElement.audio,
-                  url: element.url,
+                    el.type === "image" ? TypeElement.image : TypeElement.audio,
+                  url: el.url,
                   group_id: newGroup.id,
                 },
               });
             }
           }
 
-          const maxGlobalOrder = await tx.question.findFirst({
+          // Tính global_order bắt đầu
+          const lastGlobal = await tx.question.findFirst({
             where: {
-              group: {
-                part_id: Number(part_id),
-                exam_id: Number(exam_id),
-              },
+              group: { exam_id: Number(exam_id), part_id: Number(part_id) },
             },
             orderBy: { global_order: "desc" },
             select: { global_order: true },
           });
+          let globalOrder = lastGlobal?.global_order ?? 0;
 
-          const startGlobalOrder = maxGlobalOrder?.global_order ?? 0;
+          // Tính order trong group
+          const lastOrder = await tx.question.findFirst({
+            where: {
+              group: { exam_id: Number(exam_id), part_id: Number(part_id) },
+            },
+            orderBy: { order: "desc" },
+            select: { order: true },
+          });
+          let order = lastOrder?.order ?? 0;
 
-          for (let i = 0; i < questions.length; i++) {
+          // Tạo questions
+          for (let i = 0; i < (questions?.length ?? 0); i++) {
             const q = questions[i];
 
+            // Parse options nếu là string
             let options = q.option;
             if (typeof options === "string") {
               try {
                 options = JSON.parse(options);
-              } catch (e) {
-                console.error("Error parsing options JSON:", e);
-                return res
-                  .status(400)
-                  .json({ error: "Invalid options format" });
+              } catch {
+                throw new Error(`Options của câu hỏi ${i + 1} không hợp lệ.`);
               }
             }
 
-            // Kiểm tra elements của từng question
-            if (q.elements && q.elements.length > 0) {
-              const invalidQElement = q.elements.find((el: any) => !el.url);
-              if (invalidQElement) {
-                console.error(
-                  `[BE] Nhận được question element thiếu url (question index ${i}):`,
-                  q.elements
-                );
-                return res.status(400).json({
-                  error: `Có tệp đính kèm câu hỏi thứ ${i + 1} thiếu URL!`,
-                });
+            // Validate elements trong question
+            if (q.elements?.length > 0) {
+              for (const el of q.elements) {
+                if (!el.url) {
+                  throw new Error(`Câu hỏi ${i + 1} có element thiếu URL.`);
+                }
               }
             }
 
-            const maxOrder = await tx.question.findFirst({
-              where: {
-                group: {
-                  part_id: Number(part_id),
-                  exam_id: Number(exam_id),
-                },
-              },
-              orderBy: { order: "desc" },
-              select: { order: true },
-            });
-
-            const startOrder = maxOrder?.order ?? 0;
-
+            // Tạo question
             const createdQuestion = await tx.question.create({
               data: {
                 title: q.title,
@@ -423,23 +402,23 @@ export const QuestionController = {
                 option: options,
                 correct_option: q.correct_option,
                 score: Number(q.score),
-                order: startOrder + i + 1,
+                order: ++order,
+                global_order: ++globalOrder,
                 group_id: newGroup.id,
-                global_order: startGlobalOrder + i + 1,
                 deleted_at: null,
               },
             });
 
-            // Lưu các elements của question (đã được upload lên Cloudinary từ frontend)
-            if (q.elements && q.elements.length > 0) {
-              for (const element of q.elements) {
+            // Lưu elements cho question
+            if (q.elements?.length > 0) {
+              for (const el of q.elements) {
                 await tx.element.create({
                   data: {
                     type:
-                      element.type === "image"
+                      el.type === "image"
                         ? TypeElement.image
                         : TypeElement.audio,
-                    url: element.url,
+                    url: el.url,
                     question_id: createdQuestion.id,
                   },
                 });
@@ -447,20 +426,21 @@ export const QuestionController = {
             }
           }
 
-          return res.status(201).json({
-            message: "Questions created successfully.",
-            newGroup: newGroup,
-          });
+          return { newGroup };
         },
-        {
-          maxWait: 10000,
-          timeout: 20000,
-        }
+        { maxWait: 10000, timeout: 20000 }
       );
+
+      return res.status(201).json({
+        message: "Tạo câu hỏi thành công.",
+        newGroup: result.newGroup,
+      });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      console.error("Error in createQuestion:", err);
+      return res.status(500).json({ error: err.message || "Server error" });
     }
   },
+
   update: async (req: Request, res: Response): Promise<any> => {
     const { question_id } = req.query;
     const {

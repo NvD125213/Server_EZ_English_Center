@@ -3,13 +3,12 @@ import { Option } from "@prisma/client";
 import { z } from "zod";
 import prisma from "../config/prisma.js";
 
-// Schema validation for request body
 const submitExamSchema = z.object({
   exam_id: z.number(),
   answers: z.array(
     z.object({
       question_id: z.number(),
-      selected_option: z.nativeEnum(Option),
+      selected_option: z.string().nullable(), // ✅ chấp nhận string hoặc null
     })
   ),
 });
@@ -28,6 +27,7 @@ export const AnswerController = {
           group: {
             exam_id: exam_id,
           },
+          deleted_at: null, // chỉ lấy câu hỏi chưa bị xóa mềm
         },
         select: {
           id: true,
@@ -101,6 +101,7 @@ export const AnswerController = {
         return {
           total_score,
           correct_answers,
+          incorrect_answers: questions.length - correct_answers,
           total_questions: questions.length,
         };
       });
